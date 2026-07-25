@@ -3,15 +3,33 @@
 ## Environment
 
 ```bash
-git clone https://github.com/zju3dv/GVHMR
-cd GVHMR
+git clone https://github.com/Kashu7100/eden_gvhmr
+cd eden_gvhmr
 
 conda create -y -n gvhmr python=3.10
 conda activate gvhmr
-pip install -r requirements.txt
+
+# 1. Prerequisites that must match your CUDA toolkit (NOT auto-installed by the package,
+#    because pinning them would break co-installation into an existing GPU env):
+#      - torch / torchvision
+#      - pytorch3d (a hard inference dependency)
+#    The versions below reproduce the reference setup (CUDA 12.1); adjust for your CUDA.
+pip install torch==2.3.0+cu121 torchvision==0.18.0+cu121 --extra-index-url https://download.pytorch.org/whl/cu121
+pip install "pytorch3d @ https://dl.fbaipublicfiles.com/pytorch3d/packaging/wheels/py310_cu121_pyt230/pytorch3d-0.7.6-cp310-cp310-linux_x86_64.whl"
+
+# 2. Install GVHMR (the importable package is `hmr4d`). Optional extras: dpvo, render, slam, full.
 pip install -e .
-# to install gvhmr in other repo as editable, try adding "python.analysis.extraPaths": ["path/to/your/package"] to settings.json
+# or, to also pull the optional backends:  pip install -e ".[full]"
 ```
+
+The distribution name is `eden-gvhmr`; the import name stays `hmr4d`.
+`requirements.txt` remains as an exact reproduction of the original upstream environment
+(`pip install -r requirements.txt`) — the `pip install .` path above is preferred.
+
+> **Co-installing into another env (e.g. Eden)?** `chumpy` (used to load SMPL `.pkl`)
+> requires `numpy < 1.24`, which conflicts with newer environments. GVHMR is therefore best
+> installed in its **own** environment; an integration such as an Eden extension should call
+> it out-of-process (subprocess/worker) rather than sharing a single interpreter.
 
 ### Optional: DPVO (not recommended if you want fast inference speed)
 ```bash
@@ -59,6 +77,13 @@ inputs/checkpoints/
 └── yolo/
     └── yolov8x.pt
 ```
+
+> **Checkpoint location.** By default GVHMR looks for these checkpoints under
+> `./inputs/checkpoints` (i.e. run from a directory laid out like this repo). If you install
+> the package and run from elsewhere, point it at your checkpoint directory with the
+> `GVHMR_CHECKPOINT_ROOT` environment variable, or via `GVHMR(checkpoint_root=...)` /
+> `--checkpoint_root` in code. Body-model regressors and Hydra configs are shipped inside the
+> package; only the weights above must be downloaded.
 
 **Data**
 

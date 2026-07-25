@@ -2,12 +2,12 @@ import torch
 from .hmr2 import HMR2
 from pathlib import Path
 from .configs import get_config
-from hmr4d import PROJ_ROOT
-
-HMR2A_CKPT = PROJ_ROOT / f"inputs/checkpoints/hmr2/epoch=10-step=25000.ckpt"  # this is HMR2.0a, follow WHAM
+from hmr4d import get_checkpoint_root
 
 
-def load_hmr2(checkpoint_path=HMR2A_CKPT):
+def load_hmr2(checkpoint_path=None):
+    if checkpoint_path is None:
+        checkpoint_path = get_checkpoint_root() / "hmr2/epoch=10-step=25000.ckpt"  # HMR2.0a, follow WHAM
     model_cfg = str((Path(__file__).parent / "configs/model_config.yaml").resolve())
     model_cfg = get_config(model_cfg)
 

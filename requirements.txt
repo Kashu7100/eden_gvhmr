@@ -1,3 +1,7 @@
+# Exact reproduction of the original upstream (CUDA 12.1) environment.
+# For the packaged install, prefer `pip install .` (or `.[full]`) after setting up
+# torch + pytorch3d for your CUDA — see docs/INSTALL.md.
+
 # PyTorch
 --extra-index-url https://download.pytorch.org/whl/cu121
 torch==2.3.0+cu121

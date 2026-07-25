@@ -40,6 +40,28 @@ python tools/demo/demo.py --video=docs/example_video/tennis.mp4 -s
 python tools/demo/demo_folder.py -f inputs/demo/folder_in -d outputs/demo/folder_out -s
 ```
 
+The same CLI is available after `pip install` as `python -m hmr4d.demo` or the `gvhmr-demo` console script.
+
+### Use as a library
+
+The demo pipeline is importable, so GVHMR can be run programmatically (e.g. as an Eden extension).
+The model is loaded once and reused across calls:
+
+```python
+from hmr4d.demo import GVHMR
+
+# `checkpoint_root` points at your downloaded checkpoints (body models, GVHMR/HMR2/
+# ViTPose/YOLO/DPVO weights). It defaults to ./inputs/checkpoints; set it (or the
+# $GVHMR_CHECKPOINT_ROOT env var) to run from any working directory.
+model = GVHMR(checkpoint_root="/path/to/inputs/checkpoints")
+out = model.recover("docs/example_video/tennis.mp4", static_cam=True)  # render=True for overlay videos
+# out -> {"smpl_params_global", "smpl_params_incam", "K_fullimg", "output_dir"}
+```
+
+GVHMR is CUDA-only (select a GPU with `CUDA_VISIBLE_DEVICES`). It composes its own Hydra
+config, so it must run in a process without an already-initialized Hydra — when embedding it
+in another Hydra-using application (such as Eden), run it out-of-process.
+
 ### Reproduce
 1. **Test**:
 To reproduce the 3DPW, RICH, and EMDB results in a single run, use the following command:

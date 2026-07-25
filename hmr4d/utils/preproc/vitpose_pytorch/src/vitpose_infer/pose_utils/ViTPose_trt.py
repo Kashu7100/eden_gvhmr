@@ -38,7 +38,7 @@ class TRTModule_ViTPose(torch.nn.Module):
         self.input_flattener = input_flattener
         self.output_flattener = output_flattener
         Binding = namedtuple('Binding', ('name', 'dtype', 'shape', 'data', 'ptr'))
-        
+
         # with open(path, 'rb') as f, trt.Runtime(logger) as runtime:
         #     self.model = runtime.deserialize_cuda_engine(f.read())
         # self.context = self.model.create_execution_context()
@@ -61,13 +61,13 @@ class TRTModule_ViTPose(torch.nn.Module):
             im = torch.from_numpy(np.empty(shape, dtype=dtype)).to(device)
             self.bindings[name] = Binding(name, dtype, shape, im, int(im.data_ptr()))
         self.binding_addrs = OrderedDict((n, d.ptr) for n, d in self.bindings.items())
-        self.batch_size = self.bindings['images'].shape[0] 
+        self.batch_size = self.bindings['images'].shape[0]
 
-    
+
 
     def forward(self, *inputs):
         bindings = [None] * (len(self.input_names) + len(self.output_names))
-        
+
         if self.input_flattener is not None:
             inputs = self.input_flattener.flatten(inputs)
 

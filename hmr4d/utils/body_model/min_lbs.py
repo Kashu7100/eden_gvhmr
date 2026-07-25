@@ -19,7 +19,7 @@ class MinimalLBS(nn.Module):
 
     def load_struct_on_sp(self, bm_path, prefix='m'):
         """
-        Load 4 weights from body-model-struct. 
+        Load 4 weights from body-model-struct.
         Keep the sensor points only. Use prefix to label different bm.
         """
         num_betas = self.num_betas

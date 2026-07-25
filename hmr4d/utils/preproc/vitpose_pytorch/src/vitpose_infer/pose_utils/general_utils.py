@@ -33,7 +33,7 @@ def jitter(tracking,temp,id1):
     pass
 def jitter2(tracking,temp,id1)  :
     pass
-    
+
 def create_json_rabbitmq( FRAME_ID,pose):
     pass
 
@@ -58,9 +58,9 @@ def polys_from_pose(pts):
         # list2 = [i[0][1],i[0][0]]
         # print(i)
         for j in i:
-          
+
             temp_ = [j[1],j[0]]
-            
+
             if j[2]>0.4:
 
                 temp2_ = [1]
@@ -72,7 +72,7 @@ def polys_from_pose(pts):
             # list2 = [i[6][1],i[6][0]]
             # list3 = [i[11][1],i[11][0]]
             # list4 = [i[12][1],i[12][0]]
-        
+
         # list_ = flatten_lst(list_)
         # print(list_)
         list_=fix_list_order(list_,list_sc)

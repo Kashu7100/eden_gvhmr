@@ -11,7 +11,7 @@ except:
     pass
 
 
-from hmr4d import PROJ_ROOT
+from hmr4d import PROJ_ROOT, get_checkpoint_root
 from hmr4d.utils.geo.hmr_cam import estimate_focal_length
 
 
@@ -29,7 +29,7 @@ class SLAMModel(object):
             intrinsics = intrinsics.clone()
 
         self.dpvo_cfg = str(PROJ_ROOT / "third-party/DPVO/config/default.yaml")
-        self.dpvo_ckpt = "inputs/checkpoints/dpvo/dpvo.pth"
+        self.dpvo_ckpt = str(get_checkpoint_root() / "dpvo/dpvo.pth")
 
         self.buffer = buffer
         self.times = []
