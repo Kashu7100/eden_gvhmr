@@ -25,7 +25,7 @@ timer_pose = Timer()
 def pose_points_yolo5(detector,image,pose,tracker,tensorrt):
             timer_det.tic()
             # starter, ender = torch.cuda.Event(enable_timing=True),   torch.cuda.Event(enable_timing=True)
-           
+
             transform = TR.Compose([
                 TR.ToPILImage(),
                 # Padd(),
@@ -43,7 +43,7 @@ def pose_points_yolo5(detector,image,pose,tracker,tensorrt):
             dets = dets[dets[:,5] == 0.]
             # dets = dets[dets[:,4] > 0.3]
             # logger.warning(len(dets))
-            
+
             # if len(dets)>0:
                 # image_gpu = torch.tensor(image).cuda()/255.
                 # print(image_gpu.size())
@@ -105,7 +105,7 @@ def pose_points_yolo5(detector,image,pose,tracker,tensorrt):
                         image_crop = np.pad(image_crop,((pad), (0, 0), (0, 0)))
                         images[i] = transform(image_crop)
                         boxes[i]= torch.tensor([x1, y1_new, x2, y2_new])
-                    
+
                     elif correction_factor < 1:
                         # increase x side
                         center = x1 + (x2 - x1) // 2
@@ -118,7 +118,7 @@ def pose_points_yolo5(detector,image,pose,tracker,tensorrt):
                         image_crop = np.pad(image_crop,((0, 0), (pad), (0, 0)))
                         images[i] = transform(image_crop)
                         boxes[i]= torch.tensor([x1_new, y1, x2_new, y2])
-                        
+
 
                 if images.shape[0] > 0:
                         images = images.to(device)
@@ -131,28 +131,28 @@ def pose_points_yolo5(detector,image,pose,tracker,tensorrt):
                                 for i in range(images.shape[0]):
                                     # timer_pose.tic()
                                     # print(images[i].size())
-                                    
+
                                     out[i] = pose(images[i].unsqueeze(0))
                                 timer_pose.toc()
                                 logger.info('POSE FPS -- %s',1./timer_pose.average_time)
                         else:
                             with torch.no_grad():
-                                
+
                                 timer_pose.tic()
 
-                        
-                                    
+
+
                                 out = pose(images)
                                 timer_pose.toc()
                                 logger.info('POSE FPS -- %s',1./timer_pose.average_time)
-                            
+
 
                         pts = torch.empty((out.shape[0], out.shape[1], 3), dtype=torch.float32,device=device)
                         pts2 = np.empty((out.shape[0], out.shape[1], 3), dtype=np.float32)
 
                         (b,indices)=torch.max(out,dim=2)
                         (b,indices)=torch.max(b,dim=2)
-                        
+
                         (c,indicesc)=torch.max(out,dim=3)
                         (c,indicesc)=torch.max(c,dim=2)
                         dim1= torch.tensor(1. / 64,device=device)

@@ -4,6 +4,7 @@ import numpy as np
 from pathlib import Path
 from einops import einsum, rearrange
 
+from hmr4d import PROJ_ROOT
 from hmr4d.configs import MainStore, builds
 from hmr4d.utils.pylogger import Log
 from hmr4d.utils.comm.gather import all_gather
@@ -30,9 +31,9 @@ class MetricMocap(pl.Callback):
         # SMPLX and SMPL
         self.smplx = make_smplx("supermotion_EVAL3DPW")
         self.smpl = {"male": make_smplx("smpl", gender="male"), "female": make_smplx("smpl", gender="female")}
-        self.J_regressor = torch.load("hmr4d/utils/body_model/smpl_3dpw14_J_regressor_sparse.pt").to_dense()
-        self.J_regressor24 = torch.load("hmr4d/utils/body_model/smpl_neutral_J_regressor.pt")
-        self.smplx2smpl = torch.load("hmr4d/utils/body_model/smplx2smpl_sparse.pt")
+        self.J_regressor = torch.load(PROJ_ROOT / "hmr4d/utils/body_model/smpl_3dpw14_J_regressor_sparse.pt").to_dense()
+        self.J_regressor24 = torch.load(PROJ_ROOT / "hmr4d/utils/body_model/smpl_neutral_J_regressor.pt")
+        self.smplx2smpl = torch.load(PROJ_ROOT / "hmr4d/utils/body_model/smplx2smpl_sparse.pt")
         self.faces_smplx = self.smplx.faces
         self.faces_smpl = self.smpl["male"].faces
 

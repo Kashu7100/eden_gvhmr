@@ -40,6 +40,21 @@ python tools/demo/demo.py --video=docs/example_video/tennis.mp4 -s
 python tools/demo/demo_folder.py -f inputs/demo/folder_in -d outputs/demo/folder_out -s
 ```
 
+The same CLI is available after `pip install` as `python -m hmr4d.demo` or the `gvhmr-demo` console script.
+
+### Use as a library
+
+The demo pipeline is importable, so GVHMR can be run programmatically (e.g. as an Eden extension).
+The model is loaded once and reused across calls:
+
+```python
+from hmr4d.demo import GVHMR
+
+model = GVHMR(ckpt_path="inputs/checkpoints/gvhmr/gvhmr_siga24_release.ckpt")
+out = model.recover("docs/example_video/tennis.mp4", static_cam=True)  # set render=True for overlay videos
+# out -> {"smpl_params_global", "smpl_params_incam", "K_fullimg", "output_dir"}
+```
+
 ### Reproduce
 1. **Test**:
 To reproduce the 3DPW, RICH, and EMDB results in a single run, use the following command:

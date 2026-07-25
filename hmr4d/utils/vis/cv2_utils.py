@@ -113,7 +113,7 @@ def draw_coco17_skeleton(img, keypoints, conf_thr=0):
     use_conf_thr = True if keypoints.shape[1] == 3 else False
     img = img.copy()
     # fmt:off
-    coco_skel = [[15, 13], [13, 11], [16, 14], [14, 12], [11, 12], [5, 11], [6, 12], [5, 6], [5, 7], [6, 8], [7, 9], [8, 10], [1, 2], [0, 1], [0, 2], [1, 3], [2, 4], [3, 5], [4, 6]]            
+    coco_skel = [[15, 13], [13, 11], [16, 14], [14, 12], [11, 12], [5, 11], [6, 12], [5, 6], [5, 7], [6, 8], [7, 9], [8, 10], [1, 2], [0, 1], [0, 2], [1, 3], [2, 4], [3, 5], [4, 6]]
     # fmt:on
     for bone in coco_skel:
         if use_conf_thr:

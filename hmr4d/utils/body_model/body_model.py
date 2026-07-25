@@ -10,8 +10,8 @@ from smplx.utils import Struct
 
 
 class BodyModel(nn.Module):
-    """ 
-    Wrapper around SMPLX body model class. 
+    """
+    Wrapper around SMPLX body model class.
     modified by Zehong Shen
     """
 

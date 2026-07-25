@@ -55,6 +55,6 @@ loss = criterion(output, target)
 
 loss.backward()
 
-optimizer.step()  
+optimizer.step()
 
 # print(loss)

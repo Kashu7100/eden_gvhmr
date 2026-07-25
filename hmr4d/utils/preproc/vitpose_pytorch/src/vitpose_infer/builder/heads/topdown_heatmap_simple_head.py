@@ -14,7 +14,7 @@ from .topdown_heatmap_base_head import TopdownHeatmapBaseHead
 
 def build_conv_layer(cfg, *args, **kwargs) -> nn.Module:
     """LICENSE"""
-    
+
     if cfg is None:
         cfg_ = dict(type='Conv2d')
     else:
