@@ -101,7 +101,14 @@ class PycolmapRansacTwoViewGeometrySolver:
             options=self.options,
         )
 
-        # cam2_from_cam1 means T_0_to_1 in our language
+        # cam2_from_cam1 means T_0_to_1 in our language.
+        # For a degenerate pair (too few inliers, pure rotation, ...) COLMAP leaves the relative
+        # pose unset. pycolmap < 1.0 surfaced that as a default-constructed (identity) Rigid3d;
+        # pycolmap >= 3 returns None instead. Fall back to identity so the caller, which has no
+        # failure path, keeps the legacy "no motion for this pair" behaviour.
+        if answer.cam2_from_cam1 is None:
+            return np.eye(4)
+
         Rt = answer.cam2_from_cam1.matrix().astype(np.float32)  # shape (3, 4)
         T = np.eye(4)
         T[:3] = Rt
