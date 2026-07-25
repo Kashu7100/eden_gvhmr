@@ -50,10 +50,17 @@ The model is loaded once and reused across calls:
 ```python
 from hmr4d.demo import GVHMR
 
-model = GVHMR(ckpt_path="inputs/checkpoints/gvhmr/gvhmr_siga24_release.ckpt")
-out = model.recover("docs/example_video/tennis.mp4", static_cam=True)  # set render=True for overlay videos
+# `checkpoint_root` points at your downloaded checkpoints (body models, GVHMR/HMR2/
+# ViTPose/YOLO/DPVO weights). It defaults to ./inputs/checkpoints; set it (or the
+# $GVHMR_CHECKPOINT_ROOT env var) to run from any working directory.
+model = GVHMR(checkpoint_root="/path/to/inputs/checkpoints")
+out = model.recover("docs/example_video/tennis.mp4", static_cam=True)  # render=True for overlay videos
 # out -> {"smpl_params_global", "smpl_params_incam", "K_fullimg", "output_dir"}
 ```
+
+GVHMR is CUDA-only (select a GPU with `CUDA_VISIBLE_DEVICES`). It composes its own Hydra
+config, so it must run in a process without an already-initialized Hydra — when embedding it
+in another Hydra-using application (such as Eden), run it out-of-process.
 
 ### Reproduce
 1. **Test**:

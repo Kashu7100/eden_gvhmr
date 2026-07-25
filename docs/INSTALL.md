@@ -78,6 +78,13 @@ inputs/checkpoints/
     └── yolov8x.pt
 ```
 
+> **Checkpoint location.** By default GVHMR looks for these checkpoints under
+> `./inputs/checkpoints` (i.e. run from a directory laid out like this repo). If you install
+> the package and run from elsewhere, point it at your checkpoint directory with the
+> `GVHMR_CHECKPOINT_ROOT` environment variable, or via `GVHMR(checkpoint_root=...)` /
+> `--checkpoint_root` in code. Body-model regressors and Hydra configs are shipped inside the
+> package; only the weights above must be downloaded.
+
 **Data**
 
 We provide preprocessed data for training and evaluation.

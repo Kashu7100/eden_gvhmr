@@ -11,18 +11,21 @@ from time import time
 import pickle
 
 from .smplx_lite import batch_rigid_transform_v2
+from hmr4d import get_checkpoint_root
 
 
 class SmplLite(nn.Module):
     def __init__(
         self,
-        model_path="inputs/checkpoints/body_models/smpl",
+        model_path=None,
         gender="neutral",
         num_betas=10,
     ):
         super().__init__()
 
         # Load the model
+        if model_path is None:
+            model_path = get_checkpoint_root() / "body_models/smpl"
         model_path = Path(model_path)
         if model_path.is_dir():
             smpl_path = Path(model_path) / f"SMPL_{gender.upper()}.pkl"

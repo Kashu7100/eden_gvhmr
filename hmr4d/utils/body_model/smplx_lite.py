@@ -8,19 +8,21 @@ from smplx.utils import Struct, to_np, to_tensor
 from einops import einsum, rearrange
 from time import time
 
-from hmr4d import PROJ_ROOT
+from hmr4d import PROJ_ROOT, get_checkpoint_root
 
 
 class SmplxLite(nn.Module):
     def __init__(
         self,
-        model_path=PROJ_ROOT / "inputs/checkpoints/body_models/smplx",
+        model_path=None,
         gender="neutral",
         num_betas=10,
     ):
         super().__init__()
 
         # Load the model
+        if model_path is None:
+            model_path = get_checkpoint_root() / "body_models/smplx"
         model_path = Path(model_path)
         if model_path.is_dir():
             smplx_path = Path(model_path) / f"SMPLX_{gender.upper()}.npz"

@@ -18,6 +18,7 @@ from pathlib import Path
 from tqdm import tqdm
 from einops import einsum
 from hydra import initialize_config_module, compose
+from hydra.core.global_hydra import GlobalHydra
 from pytorch3d.transforms import quaternion_to_matrix
 
 from hmr4d import PROJ_ROOT
@@ -54,6 +55,18 @@ def build_cfg(video, static_cam=False, verbose=False, use_dpvo=False, f_mm=None,
     length, width, height = get_video_lwh(video_path)
     Log.info(f"[Input]: {video_path}")
     Log.info(f"(L, W, H) = ({length}, {width}, {height})")
+
+    # GVHMR composes its own Hydra config via the global Hydra singleton. If the host
+    # process already has Hydra initialized, initialize_config_module() would raise a
+    # cryptic error, so fail fast with guidance instead (the recommended integration
+    # runs GVHMR out-of-process anyway).
+    if GlobalHydra.instance().is_initialized():
+        raise RuntimeError(
+            "Hydra is already initialized in this process. GVHMR composes its own Hydra "
+            "config and cannot share the global Hydra state. Run GVHMR in a separate "
+            "process (the recommended out-of-process integration), or clear Hydra first "
+            "with `hydra.core.global_hydra.GlobalHydra.instance().clear()`."
+        )
 
     with initialize_config_module(version_base="1.3", config_module="hmr4d.configs"):
         overrides = [

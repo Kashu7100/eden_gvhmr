@@ -12,11 +12,13 @@ The individual stages remain available in :mod:`hmr4d.demo.pipeline` for callers
 that want finer control.
 """
 
+import os
 from pathlib import Path
 
 import torch
 import hydra
 
+from hmr4d import get_checkpoint_root, CHECKPOINT_ROOT_ENV
 from hmr4d.utils.pylogger import Log
 from hmr4d.utils.net_utils import detach_to_cpu
 from hmr4d.utils.video_io_utils import merge_videos_horizontal
@@ -38,18 +40,27 @@ class GVHMR:
     and reused across videos. Preprocess extractors (tracker / ViTPose / ViT feature
     extractor) are instantiated per call, matching the original demo script.
 
+    GVHMR is CUDA-only; select a GPU with ``CUDA_VISIBLE_DEVICES``.
+
     Parameters
     ----------
     ckpt_path : str | Path | None
-        GVHMR checkpoint. ``None`` uses the config default
-        (``inputs/checkpoints/gvhmr/gvhmr_siga24_release.ckpt``, relative to CWD).
-    device : str
-        Device for the model. GVHMR is CUDA-only in practice.
+        GVHMR checkpoint. ``None`` derives it from the checkpoint root as
+        ``<checkpoint_root>/gvhmr/gvhmr_siga24_release.ckpt``.
+    checkpoint_root : str | Path | None
+        Directory holding the external, user-downloaded checkpoints (body models,
+        GVHMR/HMR2/ViTPose/YOLO/DPVO weights). When given, it is exported via
+        ``$GVHMR_CHECKPOINT_ROOT`` so every loader resolves against it — this is what
+        lets the package run from an arbitrary working directory (e.g. an
+        out-of-process worker) rather than requiring ``CWD == repo root``. ``None``
+        keeps the default resolution (see :func:`hmr4d.get_checkpoint_root`).
+        Note: the env var is process-wide, so the most recent value wins.
     """
 
-    def __init__(self, ckpt_path=None, device="cuda"):
+    def __init__(self, ckpt_path=None, checkpoint_root=None):
+        if checkpoint_root is not None:
+            os.environ[CHECKPOINT_ROOT_ENV] = str(Path(checkpoint_root).expanduser())
         self.ckpt_path = str(ckpt_path) if ckpt_path is not None else None
-        self.device = device
         self._model = None
 
     def _ensure_model(self, cfg):
@@ -57,7 +68,7 @@ class GVHMR:
             Log.info("[HMR4D] Loading model")
             model = hydra.utils.instantiate(cfg.model, _recursive_=False)
             model.load_pretrained_model(cfg.ckpt_path)
-            self._model = model.eval().to(self.device)
+            self._model = model.eval().cuda()
         return self._model
 
     @torch.no_grad()
@@ -97,6 +108,7 @@ class GVHMR:
         dict
             ``{"smpl_params_global", "smpl_params_incam", "K_fullimg", "output_dir"}``.
         """
+        ckpt_path = self.ckpt_path or str(get_checkpoint_root() / "gvhmr/gvhmr_siga24_release.ckpt")
         cfg = build_cfg(
             video,
             static_cam=static_cam,
@@ -104,7 +116,7 @@ class GVHMR:
             use_dpvo=use_dpvo,
             f_mm=f_mm,
             output_root=output_root,
-            ckpt_path=self.ckpt_path,
+            ckpt_path=ckpt_path,
         )
 
         run_preprocess(cfg)

@@ -16,7 +16,14 @@ def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--video", type=str, default="inputs/demo/dance_3.mp4")
     parser.add_argument("--output_root", type=str, default=None, help="by default to outputs/demo")
-    parser.add_argument("--ckpt_path", type=str, default=None, help="GVHMR checkpoint (default from config)")
+    parser.add_argument("--ckpt_path", type=str, default=None, help="GVHMR checkpoint (default from checkpoint root)")
+    parser.add_argument(
+        "--checkpoint_root",
+        type=str,
+        default=None,
+        help="Directory holding external checkpoints (body models, GVHMR/HMR2/ViTPose/YOLO/DPVO). "
+        "Defaults to ./inputs/checkpoints; also settable via $GVHMR_CHECKPOINT_ROOT.",
+    )
     parser.add_argument("-s", "--static_cam", action="store_true", help="If true, skip DPVO")
     parser.add_argument("--use_dpvo", action="store_true", help="If true, use DPVO. By default not using DPVO.")
     parser.add_argument(
@@ -36,7 +43,7 @@ def main():
     Log.info(f"[GPU]: {torch.cuda.get_device_name()}")
     Log.info(f'[GPU]: {torch.cuda.get_device_properties("cuda")}')
 
-    model = GVHMR(ckpt_path=args.ckpt_path)
+    model = GVHMR(ckpt_path=args.ckpt_path, checkpoint_root=args.checkpoint_root)
     model.recover(
         args.video,
         static_cam=args.static_cam,

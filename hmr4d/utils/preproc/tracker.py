@@ -1,5 +1,5 @@
 from ultralytics import YOLO
-from hmr4d import PROJ_ROOT
+from hmr4d import get_checkpoint_root
 
 import torch
 import numpy as np
@@ -19,7 +19,7 @@ from hmr4d.utils.net_utils import moving_average_smooth
 class Tracker:
     def __init__(self) -> None:
         # https://docs.ultralytics.com/modes/predict/
-        self.yolo = YOLO(PROJ_ROOT / "inputs/checkpoints/yolo/yolov8x.pt")
+        self.yolo = YOLO(get_checkpoint_root() / "yolo/yolov8x.pt")
 
     def track(self, video_path):
         track_history = []
