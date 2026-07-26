@@ -9,6 +9,7 @@ import hmr4d.dataset.h36m.h36m
 
 # Trainer: Model Optimizer Loss
 import hmr4d.model.gvhmr.gvhmr_pl
+import hmr4d.model.gvhmr.gvhmr_pl_demo  # registers model/gvhmr/gvhmr_pl_demo, used by demo.yaml
 import hmr4d.model.gvhmr.utils.endecoder
 import hmr4d.model.common_utils.optimizer
 import hmr4d.model.common_utils.scheduler_cfg

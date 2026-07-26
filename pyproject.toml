@@ -27,33 +27,44 @@ dependencies = [
     "hydra-zen",
     "hydra-colorlog",
     "omegaconf",
-    "numpy",               # unpinned (upstream pinned 1.23.5 — see the chumpy caveat in INSTALL.md)
+    # chumpy imports the numpy scalar aliases (np.bool/int/float/...) removed in numpy 1.24,
+    # and torch 2.3 is built against numpy 1.x — so this is a hard upper bound, not a preference.
+    "numpy<1.24",
     "einops",
-    "opencv-python",
-    "imageio",
-    "av",
+    "opencv-python<5",     # cv2 5.x is a new major with API changes; unverified here
+    # The video decoders are part of the numerics: av 17 / imageio 2.37 decode the same mp4 to
+    # slightly different pixels than av 13 / imageio 2.34, which moves the YOLO boxes and shifts
+    # every downstream stage. Pinning them back made a clean-room env reproduce the reference
+    # run bit-for-bit on docs/example_video/tennis.mp4 (max |d| exactly 0).
+    "imageio==2.34.1",
+    "av==13.0.0",
     "scikit-image",
     "termcolor",
     "rich",
     "joblib",
-    "timm",                # HMR2.0a ViT feature extraction
+    "ffmpeg-python",       # hmr4d.utils.video_io_utils imports `ffmpeg`
+    "huggingface-hub",     # gvhmr-download-checkpoints
     "smplx",
     "trimesh",
-    "chumpy",              # SMPL .pkl loading (needs numpy < 1.24 — see INSTALL.md)
-    "ultralytics",         # YOLO tracker
+    "chumpy",              # SMPL .pkl loading (needs numpy < 1.24, pinned above)
     "cython_bbox",
+    # Results are sensitive to these two: with timm 1.0.28 + ultralytics 8.4.105 the YOLO
+    # tracker emits different boxes, which cascades through the ViT crops into the prediction
+    # (measured on docs/example_video/tennis.mp4: max |d body_pose| 4.8e-2 rad, |d transl| 3.7 cm).
+    # Pinned to upstream's versions so the released checkpoint reproduces its reference behaviour.
+    "timm==0.9.12",        # HMR2.0a ViT feature extraction
+    "ultralytics==8.2.42", # YOLO tracker
     "lapx",
+    # Imported unconditionally on the demo path, so neither can be an extra:
+    "wis3d",               # hmr4d.utils.vis.cv2_utils -> hmr4d.utils.wis3d_utils
+    "pycolmap",            # hmr4d.utils.preproc -> relpose.simple_vo (the DEFAULT camera backend)
 ]
 
 [project.optional-dependencies]
 # DPVO visual odometry (SimpleVO is the default and needs none of these).
 dpvo = ["torch-scatter", "numba", "pypose"]
-# Extra visualization helpers (pytorch3d, required by the renderer, is a core prereq above).
-render = ["wis3d"]
-# COLMAP-based SLAM utilities.
-slam = ["pycolmap"]
 # Everything optional in one go.
-full = ["torch-scatter", "numba", "pypose", "wis3d", "pycolmap"]
+full = ["torch-scatter", "numba", "pypose"]
 
 [project.urls]
 Homepage = "https://zju3dv.github.io/gvhmr"
@@ -63,6 +74,7 @@ Upstream = "https://github.com/zju3dv/GVHMR"
 
 [project.scripts]
 gvhmr-demo = "hmr4d.demo.__main__:main"
+gvhmr-download-checkpoints = "hmr4d.download:main"
 
 [tool.setuptools.packages.find]
 include = ["hmr4d*"]
