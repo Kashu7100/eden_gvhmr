@@ -30,33 +30,48 @@ dependencies = [
     "hydra-zen",
     "hydra-colorlog",
     "omegaconf",
-    # chumpy imports the numpy scalar aliases (np.bool/int/float/...) removed in numpy 1.24,
-    # and torch 2.3 is built against numpy 1.x — so this is a hard upper bound, not a preference.
-    "numpy<1.24",
+    # No upper bound. The old `numpy<1.24` came from chumpy 0.70, whose module scope did
+    # `from numpy import bool, int, float, ...` — aliases removed in 1.24. The pin was also
+    # self-fulfilling: it is what made the resolver choose 0.70. chumpy master (pinned below)
+    # dropped that line and imports cleanly under numpy 2.
+    #
+    # The remaining numpy constraint comes from *torch*, which declares none of its own: torch
+    # < 2.4 is compiled against numpy 1.x and dies at import under numpy 2. Install torch first
+    # (docs/INSTALL.md); use the `reproducible` extra to get the whole numpy-1 reference stack.
+    "numpy>=1.23",
     "einops",
     "opencv-python<5",     # cv2 5.x is a new major with API changes; unverified here
-    # The video decoders are part of the numerics: av 17 / imageio 2.37 decode the same mp4 to
-    # slightly different pixels than av 13 / imageio 2.34, which moves the YOLO boxes and shifts
-    # every downstream stage. Pinning them back made a clean-room env reproduce the reference
-    # run bit-for-bit on docs/example_video/tennis.mp4 (max |d| exactly 0).
-    "imageio==2.34.1",
-    "av==13.0.0",
+    # Floors, not pins. The video decoder is part of the numerics — av 18 / imageio 2.37 decode
+    # the same mp4 to slightly different pixels than av 13 / imageio 2.34, which moves the YOLO
+    # boxes and shifts every downstream stage — but that is a reproducibility concern, not a
+    # correctness one, and pinning them here makes the package uninstallable next to anything
+    # modern. `reproducible` restores the exact set.
+    "imageio>=2.34.1",
+    "av>=13.0.0",
     "scikit-image",
     "termcolor",
     "rich",
     "joblib",
     "ffmpeg-python",       # hmr4d.utils.video_io_utils imports `ffmpeg`
     "huggingface-hub",     # gvhmr-download-checkpoints
+    # hmr4d.network.hmr2.hmr2 imports `yacs` directly. It was never declared and only resolved
+    # because pytorch3d happened to pull it in; now that pytorch3d is optional, it must be here.
+    "yacs",
+    "tqdm",                # used throughout; previously only arrived transitively
     "smplx",
     "trimesh",
-    "chumpy",              # SMPL .pkl loading (needs numpy < 1.24, pinned above)
+    # SMPL .pkl loading. Taken from master rather than PyPI: the last release (0.70) cannot be
+    # imported under numpy >= 1.24, and there has been no release since. Same commit Eden pins,
+    # so the two can share one installed distribution.
+    "chumpy @ git+https://github.com/mattloper/chumpy@580566eafc9ac68b2614b64d6f7aaa8",
     "cython_bbox",
-    # Results are sensitive to these two: with timm 1.0.28 + ultralytics 8.4.105 the YOLO
-    # tracker emits different boxes, which cascades through the ViT crops into the prediction
-    # (measured on docs/example_video/tennis.mp4: max |d body_pose| 4.8e-2 rad, |d transl| 3.7 cm).
-    # Pinned to upstream's versions so the released checkpoint reproduces its reference behaviour.
-    "timm==0.9.12",        # HMR2.0a ViT feature extraction
-    "ultralytics==8.2.42", # YOLO tracker
+    # Floors, for the same reason as av/imageio above: newer versions perturb the tracker boxes
+    # (max |d body_pose| ~5e-2 rad on the bundled tennis clip) but are not wrong. The ultralytics
+    # floor is a hard requirement, not a preference: upstream's 8.2.42 predates torch 2.6 flipping
+    # `torch.load` to weights_only=True, so its own loader raises UnpicklingError on yolov8x.pt
+    # against any modern torch.
+    "timm>=0.9.12",        # HMR2.0a ViT feature extraction
+    "ultralytics>=8.4.0",  # YOLO tracker
     "lapx",
     # Imported unconditionally on the demo path, so neither can be an extra:
     "wis3d",               # hmr4d.utils.vis.cv2_utils -> hmr4d.utils.wis3d_utils
@@ -64,6 +79,11 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+# NOTE: there is deliberately no `reproducible` extra. Reproducing the published numbers means
+# going *below* the floors above (ultralytics 8.2.42, numpy 1.23.5), and an extra can only
+# narrow a requirement, never relax one — so it could not be satisfied. The legacy stack is a
+# documented manual recipe instead; see "Reproducing the reference numbers" in docs/INSTALL.md.
+#
 # DPVO visual odometry (SimpleVO is the default and needs none of these).
 dpvo = ["torch-scatter", "numba", "pypose"]
 # Mesh rendering (`--render` / `recover(render=True)`). pytorch3d cannot be pinned here: it has to
@@ -83,6 +103,12 @@ Upstream = "https://github.com/zju3dv/GVHMR"
 [project.scripts]
 gvhmr-demo = "hmr4d.demo.__main__:main"
 gvhmr-download-checkpoints = "hmr4d.download:main"
+
+[tool.uv.extra-build-dependencies]
+# chumpy's setup.py imports pip/numpy at build time, which PEP 517 build isolation does not
+# provide, so building it from git fails with `No module named 'pip'`. Same entry Eden carries.
+# With plain pip, install it with `--no-build-isolation` instead — see docs/INSTALL.md.
+chumpy = ["pip", "setuptools", "wheel", "numpy"]
 
 [tool.setuptools.packages.find]
 include = ["hmr4d*"]
