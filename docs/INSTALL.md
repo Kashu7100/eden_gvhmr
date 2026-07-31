@@ -61,6 +61,7 @@ tennis clip, against the reference pins:
 | change | effect on the estimate |
 | --- | --- |
 | numpy 1.23.5 -> 1.26.4 | **bit-identical** |
+| numpy 1.26.4 -> 2.2.6 (the 1.x/2.x major bump) | **bit-identical**, incl. every preprocess artifact |
 | imageio 2.34.1 -> 2.37.4 | **bit-identical** |
 | timm 0.9.12 -> 1.0.28 | **bit-identical** |
 | av 13.0 -> 17.1 (decoder) | 3.6 deg max on body joints |

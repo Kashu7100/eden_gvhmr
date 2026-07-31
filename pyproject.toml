@@ -33,7 +33,9 @@ dependencies = [
     # No upper bound. The old `numpy<1.24` came from chumpy 0.70, whose module scope did
     # `from numpy import bool, int, float, ...` — aliases removed in 1.24. The pin was also
     # self-fulfilling: it is what made the resolver choose 0.70. chumpy master (pinned below)
-    # dropped that line and imports cleanly under numpy 2.
+    # dropped that line and imports cleanly under numpy 2. Holding everything else fixed (torch 2.6,
+# scipy 1.14.1, ultralytics 8.4.113, av 13, imageio 2.37, timm 1.0.28), stepping numpy across the
+# 1.x/2.x boundary (1.26.4 -> 2.2.6) is bit-identical — NEP 50 does not move this pipeline.
     #
     # The remaining numpy constraint comes from *torch*, which declares none of its own: torch
     # < 2.4 is compiled against numpy 1.x and dies at import under numpy 2. Install torch first
