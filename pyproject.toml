@@ -54,6 +54,9 @@ dependencies = [
     "termcolor",
     "rich",
     "joblib",
+    # hmr4d.utils.pylogger imports it directly. It used to arrive via hydra-colorlog; once Hydra
+    # moved to the `train` extra a default install lost it, so it must be declared here.
+    "colorlog",
     "ffmpeg-python",       # hmr4d.utils.video_io_utils imports `ffmpeg`
     "huggingface-hub",     # gvhmr-download-checkpoints
     # hmr4d.network.hmr2.hmr2 imports `yacs` directly. It was never declared and only resolved

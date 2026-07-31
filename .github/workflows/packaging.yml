@@ -1,0 +1,109 @@
+name: packaging
+
+# Guards the things that make this package publishable, because none of them are visible from a
+# working checkout:
+#   * an editable dev env keeps orphaned transitive dependencies alive, so an undeclared import
+#     only shows up in a clean install from the built wheel (this is how a missing `colorlog`
+#     survived until the first upload attempt);
+#   * PyPI refuses direct URL requirements, in extras as well as core dependencies;
+#   * the Hydra configs and the ~14 resource tensors are package *data*, and a glob that stops
+#     matching produces a wheel that imports fine and then fails at runtime.
+# Inference itself needs a GPU and licence-gated checkpoints, so it is not run here.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  distributions:
+    name: build, inspect and smoke-install the distributions
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install build tooling
+        run: python -m pip install --upgrade build twine
+
+      - name: Build sdist and wheel
+        run: python -m build
+
+      - name: twine check
+        run: twine check --strict dist/*
+
+      - name: Metadata must contain no direct URL requirements
+        # PyPI rejects `pkg @ git+https://...`. Catching it here keeps a dependency change from
+        # silently making the project unpublishable.
+        run: |
+          python - <<'PY'
+          import glob, sys, zipfile
+          whl = glob.glob("dist/*.whl")[0]
+          with zipfile.ZipFile(whl) as z:
+              meta = next(n for n in z.namelist() if n.endswith("METADATA"))
+              reqs = [l for l in z.read(meta).decode().splitlines() if l.startswith("Requires-Dist")]
+          bad = [r for r in reqs if "@ git+" in r or "@ http" in r]
+          print(f"{len(reqs)} Requires-Dist entries, {len(bad)} with a direct URL")
+          for r in bad:
+              print("  ", r)
+          sys.exit(1 if bad else 0)
+          PY
+
+      - name: Wheel must carry its package data
+        # The Hydra config tree and the bundled body-model tensors are loaded at runtime by path.
+        run: |
+          python - <<'PY'
+          import collections, glob, sys, zipfile
+          whl = glob.glob("dist/*.whl")[0]
+          with zipfile.ZipFile(whl) as z:
+              names = z.namelist()
+          ext = collections.Counter(n.rsplit(".", 1)[-1] for n in names if "." in n)
+          expected = {"yaml": 14, "pt": 7, "pth": 1, "npz": 1}
+          print({k: ext.get(k, 0) for k in expected})
+          missing = {k: (ext.get(k, 0), v) for k, v in expected.items() if ext.get(k, 0) < v}
+          if missing:
+              print("package data is short of what the runtime loads (got, expected):", missing)
+              sys.exit(1)
+          PY
+
+      - name: Install the wheel into a clean environment and import it
+        # From a scratch directory, so anything resolved relative to the source tree fails here
+        # rather than in a user's install. Torch is CPU-only; this only exercises imports.
+        run: |
+          python -m venv /tmp/clean
+          /tmp/clean/bin/pip install --quiet --upgrade pip
+          /tmp/clean/bin/pip install --quiet torch --index-url https://download.pytorch.org/whl/cpu
+          /tmp/clean/bin/pip install --quiet dist/*.whl
+          cd /tmp
+          /tmp/clean/bin/python -c "
+          import hmr4d
+          from hmr4d.demo import GVHMR                     # the whole inference import chain
+          from hmr4d.utils.rotation_conversions import axis_angle_to_matrix
+          from hmr4d.utils.instantiate import instantiate
+          assert 'site-packages' in hmr4d.__file__, hmr4d.__file__
+          print('clean install imports OK from', hmr4d.__file__)
+          "
+          /tmp/clean/bin/gvhmr-download-checkpoints --help > /dev/null
+          echo 'console scripts OK'
+
+      - name: Inference must not require Hydra or pytorch3d
+        # Both are optional extras; a stray import in the inference path would silently make them
+        # mandatory again.
+        run: |
+          cd /tmp
+          /tmp/clean/bin/python -c "
+          import sys
+          import hmr4d.demo  # noqa: F401
+          leaked = sorted(m for m in sys.modules if m.split('.')[0] in {'hydra', 'hydra_zen', 'pytorch3d'})
+          assert not leaked, f'inference imported optional-only packages: {leaked}'
+          print('no hydra / pytorch3d on the inference import path')
+          "
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: distributions
+          path: dist/
