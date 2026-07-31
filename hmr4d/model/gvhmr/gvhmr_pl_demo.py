@@ -1,6 +1,6 @@
 import torch
 import pytorch_lightning as pl
-from hydra.utils import instantiate
+from hmr4d.utils.instantiate import instantiate
 from hmr4d.utils.pylogger import Log
 from hmr4d.configs import MainStore, builds
 

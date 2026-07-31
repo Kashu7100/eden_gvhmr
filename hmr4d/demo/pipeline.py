@@ -17,12 +17,11 @@ import numpy as np
 from pathlib import Path
 from tqdm import tqdm
 from einops import einsum
-from hydra import initialize_config_module, compose
-from hydra.core.global_hydra import GlobalHydra
+from dataclasses import dataclass, field
+from types import SimpleNamespace
 from hmr4d.utils.rotation_conversions import quaternion_to_matrix
 
-from hmr4d import PROJ_ROOT
-from hmr4d.configs import register_store_gvhmr
+from hmr4d import PROJ_ROOT, get_checkpoint_root
 from hmr4d.utils.pylogger import Log
 from hmr4d.utils.video_io_utils import (
     get_video_lwh,
@@ -45,10 +44,86 @@ SMPLX2SMPL_PT = PROJ_ROOT / "hmr4d/utils/body_model/smplx2smpl_sparse.pt"
 SMPL_NEUTRAL_J_REGRESSOR_PT = PROJ_ROOT / "hmr4d/utils/body_model/smpl_neutral_J_regressor.pt"
 
 
-def build_cfg(video, static_cam=False, verbose=False, use_dpvo=False, f_mm=None, output_root=None, ckpt_path=None):
-    """Compose the demo Hydra cfg for one video and copy the input into the output dir.
+#: The demo's model spec, mirroring ``hmr4d/configs/demo.yaml`` and the group configs it pulls
+#: in (``model/gvhmr/gvhmr_pl_demo``, ``network/gvhmr/relative_transformer``,
+#: ``endecoder/gvhmr/v1_amass_local_bedlam_cam``). Written out rather than composed with Hydra so
+#: inference never touches the global Hydra state — see :mod:`hmr4d.utils.instantiate`. Every
+#: value here matches the resolved Hydra config; ``tests`` pins that, so the two cannot drift.
+DEMO_MODEL_CFG = {
+    "_target_": "hmr4d.model.gvhmr.gvhmr_pl_demo.DemoPL",
+    "pipeline": {
+        "_target_": "hmr4d.model.gvhmr.pipeline.gvhmr_pipeline.Pipeline",
+        "args_denoiser3d": {
+            "_target_": "hmr4d.network.gvhmr.relative_transformer.NetworkEncoderRoPE",
+            "output_dim": 151,
+            "max_len": 120,
+            "cliffcam_dim": 3,
+            "cam_angvel_dim": 6,
+            "imgseq_dim": 1024,
+            "latent_dim": 512,
+            "num_layers": 12,
+            "num_heads": 8,
+            "mlp_ratio": 4.0,
+            "pred_cam_dim": 3,
+            "static_conf_dim": 6,
+            "dropout": 0.1,
+            "avgbeta": True,
+        },
+        # SimpleNamespace, not a dict: Pipeline reads these by attribute (`args.weights`,
+        # `args.normalize_cam_angvel`), which the DictConfig Hydra used to pass supported.
+        "args": SimpleNamespace(
+            endecoder_opt={
+                "_target_": "hmr4d.model.gvhmr.utils.endecoder.EnDecoder",
+                "stats_name": "MM_V1_AMASS_LOCAL_BEDLAM_CAM",
+                "noise_pose_k": 10,
+            },
+            normalize_cam_angvel=True,
+            weights=None,
+            static_conf=None,
+        ),
+    },
+}
 
-    Mirrors the original ``parse_args_to_cfg`` but is driven by explicit arguments.
+
+@dataclass
+class DemoPaths:
+    """Where each stage reads and writes. Derived from ``output_dir`` exactly as demo.yaml did."""
+
+    bbx: str
+    bbx_xyxy_video_overlay: str
+    vit_features: str
+    vitpose: str
+    vitpose_video_overlay: str
+    hmr4d_results: str
+    incam_video: str
+    global_video: str
+    incam_global_horiz_video: str
+    slam: str
+
+
+@dataclass
+class DemoCfg:
+    """One demo run's settings — the plain-Python replacement for the composed Hydra config."""
+
+    video_name: str
+    output_root: str
+    output_dir: str
+    preprocess_dir: str
+    video_path: str
+    ckpt_path: str
+    paths: DemoPaths
+    static_cam: bool = False
+    verbose: bool = False
+    use_dpvo: bool = False
+    f_mm: float | None = None
+    model: dict = field(default_factory=lambda: DEMO_MODEL_CFG)
+
+
+def build_cfg(video, static_cam=False, verbose=False, use_dpvo=False, f_mm=None, output_root=None, ckpt_path=None):
+    """Build the demo config for one video and copy the input into the output dir.
+
+    Plain Python: no Hydra, so this is safe to call from a host process that owns Hydra's
+    global state. Field-for-field equivalent to composing ``hmr4d/configs/demo.yaml``.
     """
     video_path = Path(video)
     assert video_path.exists(), f"Video not found at {video_path}"
@@ -56,33 +131,34 @@ def build_cfg(video, static_cam=False, verbose=False, use_dpvo=False, f_mm=None,
     Log.info(f"[Input]: {video_path}")
     Log.info(f"(L, W, H) = ({length}, {width}, {height})")
 
-    # GVHMR composes its own Hydra config via the global Hydra singleton. If the host
-    # process already has Hydra initialized, initialize_config_module() would raise a
-    # cryptic error, so fail fast with guidance instead (the recommended integration
-    # runs GVHMR out-of-process anyway).
-    if GlobalHydra.instance().is_initialized():
-        raise RuntimeError(
-            "Hydra is already initialized in this process. GVHMR composes its own Hydra "
-            "config and cannot share the global Hydra state. Run GVHMR in a separate "
-            "process (the recommended out-of-process integration), or clear Hydra first "
-            "with `hydra.core.global_hydra.GlobalHydra.instance().clear()`."
-        )
-
-    with initialize_config_module(version_base="1.3", config_module="hmr4d.configs"):
-        overrides = [
-            f"video_name={video_path.stem}",
-            f"static_cam={static_cam}",
-            f"verbose={verbose}",
-            f"use_dpvo={use_dpvo}",
-        ]
-        if f_mm is not None:
-            overrides.append(f"f_mm={f_mm}")
-        if output_root is not None:
-            overrides.append(f"output_root={output_root}")
-        if ckpt_path is not None:
-            overrides.append(f"ckpt_path={ckpt_path}")
-        register_store_gvhmr()
-        cfg = compose(config_name="demo", overrides=overrides)
+    video_name = video_path.stem
+    output_root = str(output_root) if output_root is not None else "outputs/demo"
+    output_dir = f"{output_root}/{video_name}"
+    preprocess_dir = f"{output_dir}/preprocess"
+    cfg = DemoCfg(
+        video_name=video_name,
+        output_root=output_root,
+        output_dir=output_dir,
+        preprocess_dir=preprocess_dir,
+        video_path=f"{output_dir}/0_input_video.mp4",
+        ckpt_path=str(ckpt_path) if ckpt_path is not None else str(get_checkpoint_root() / "gvhmr/gvhmr_siga24_release.ckpt"),
+        paths=DemoPaths(
+            bbx=f"{preprocess_dir}/bbx.pt",
+            bbx_xyxy_video_overlay=f"{preprocess_dir}/bbx_xyxy_video_overlay.mp4",
+            vit_features=f"{preprocess_dir}/vit_features.pt",
+            vitpose=f"{preprocess_dir}/vitpose.pt",
+            vitpose_video_overlay=f"{preprocess_dir}/vitpose_video_overlay.mp4",
+            hmr4d_results=f"{output_dir}/hmr4d_results.pt",
+            incam_video=f"{output_dir}/1_incam.mp4",
+            global_video=f"{output_dir}/2_global.mp4",
+            incam_global_horiz_video=f"{output_dir}/{video_name}_3_incam_global_horiz.mp4",
+            slam=f"{preprocess_dir}/slam_results.pt",
+        ),
+        static_cam=static_cam,
+        verbose=verbose,
+        use_dpvo=use_dpvo,
+        f_mm=f_mm,
+    )
 
     # Output
     Log.info(f"[Output Dir]: {cfg.output_dir}")

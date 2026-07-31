@@ -26,10 +26,6 @@ classifiers = [
 # real package, which is why it lives in the `render` extra rather than here.
 dependencies = [
     "pytorch-lightning",   # code imports `pytorch_lightning`
-    "hydra-core>=1.3",
-    "hydra-zen",
-    "hydra-colorlog",
-    "omegaconf",
     # No upper bound. The old `numpy<1.24` came from chumpy 0.70, whose module scope did
     # `from numpy import bool, int, float, ...` — aliases removed in 1.24. The pin was also
     # self-fulfilling: it is what made the resolver choose 0.70. chumpy master (pinned below)
@@ -93,6 +89,10 @@ dependencies = [
 # narrow a requirement, never relax one — so it could not be satisfied. The legacy stack is a
 # documented manual recipe instead; see "Reproducing the reference numbers" in docs/INSTALL.md.
 #
+# Training: Hydra composes the training configs. Inference builds its model directly (see
+# hmr4d.utils.instantiate), so it needs none of this — hmr4d/configs falls back to no-op
+# registration when Hydra is absent.
+train = ["hydra-core>=1.3", "hydra-zen", "hydra-colorlog", "omegaconf"]
 # DPVO visual odometry (SimpleVO is the default and needs none of these).
 dpvo = ["torch-scatter", "numba", "pypose"]
 # Mesh rendering (`--render` / `recover(render=True)`). pytorch3d cannot be pinned here: it has to

@@ -16,9 +16,9 @@ import os
 from pathlib import Path
 
 import torch
-import hydra
 
 from hmr4d import get_checkpoint_root, CHECKPOINT_ROOT_ENV
+from hmr4d.utils.instantiate import instantiate
 from hmr4d.utils.pylogger import Log
 from hmr4d.utils.net_utils import detach_to_cpu
 from hmr4d.utils.video_io_utils import merge_videos_horizontal
@@ -66,7 +66,7 @@ class GVHMR:
     def _ensure_model(self, cfg):
         if self._model is None:
             Log.info("[HMR4D] Loading model")
-            model = hydra.utils.instantiate(cfg.model, _recursive_=False)
+            model = instantiate(cfg.model, _recursive_=False)
             model.load_pretrained_model(cfg.ckpt_path)
             self._model = model.eval().cuda()
         return self._model

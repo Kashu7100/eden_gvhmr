@@ -14,12 +14,18 @@ conda activate gvhmr
 #    the reference setup (CUDA 12.1); adjust for your CUDA.
 pip install torch==2.3.0+cu121 torchvision==0.18.0+cu121 --extra-index-url https://download.pytorch.org/whl/cu121
 
-# 2. Install GVHMR (the importable package is `hmr4d`). Optional extras: dpvo, render, full.
+# 2. Install GVHMR (the importable package is `hmr4d`). Optional extras: train, dpvo, render, full.
 pip install -e .
 # or, to also pull the optional DPVO backend:  pip install -e ".[full]"
 ```
 
-**Inference needs no compiled dependency.** pytorch3d used to be required, but the only part
+**Inference needs neither a compiled dependency nor Hydra.** The model is built directly from
+`hmr4d.demo.pipeline.DEMO_MODEL_CFG`, so nothing touches Hydra's global config state — which is
+what lets GVHMR run inside a host process that owns Hydra itself. Hydra is still how *training*
+composes its configs, and lives in the `train` extra; `tools/bench/test_demo_cfg_parity.py`
+asserts the Python config still matches `hmr4d/configs/demo.yaml` so the two cannot drift.
+
+**Inference needs no compiled dependency either.** pytorch3d used to be required, but the only part
 GVHMR needed on the inference path was its pure-torch rotation helpers, and those are now
 vendored in `hmr4d/utils/rotation_conversions.py` (copied verbatim from pytorch3d 0.7.8, BSD-3).
 `pip install -e .` is therefore enough to run `python -m hmr4d.demo`.
