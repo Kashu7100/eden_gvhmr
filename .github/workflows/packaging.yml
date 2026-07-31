@@ -70,6 +70,28 @@ jobs:
               sys.exit(1)
           PY
 
+      - name: Demo path must not use a bare torch.load
+        # torch 2.6 flipped `weights_only` to True, which rejects any pickle holding a non-tensor.
+        # GVHMR's SLAM cache is a numpy array, so a bare load raises UnpicklingError under any
+        # modern torch — invisible here for a long time because the dev environment pinned torch
+        # 2.3, and only reachable once GVHMR ran in-process under the host's torch. Every load on
+        # this path reads GVHMR's own output, so weights_only=False is correct; it just has to be
+        # explicit. Scoped to hmr4d/demo: the training and eval paths need their own datasets to
+        # exercise and are not part of what `pip install eden-gvhmr` promises.
+        run: |
+          python - <<'PY'
+          import pathlib, re, sys
+          bad = []
+          for f in sorted(pathlib.Path("hmr4d/demo").rglob("*.py")):
+              for i, line in enumerate(f.read_text().splitlines(), 1):
+                  if "torch.load(" in line and "weights_only" not in line:
+                      bad.append(f"{f}:{i}: {line.strip()}")
+          print(f"{len(bad)} bare torch.load call(s) on the demo path")
+          for b in bad:
+              print("  ", b)
+          sys.exit(1 if bad else 0)
+          PY
+
       - name: Install the wheel into a clean environment and import it
         # From a scratch directory, so anything resolved relative to the source tree fails here
         # rather than in a user's install. Torch is CPU-only; this only exercises imports.

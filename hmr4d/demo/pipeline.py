@@ -10,6 +10,13 @@ Logic is unchanged from the original script; the only differences are:
 - bundled body-model tensors load via ``PROJ_ROOT`` so inference works when the
   package is pip-installed (CWD need not be the repo root);
 - the ``renderer`` import is deferred into the render functions.
+
+Every ``torch.load`` here passes ``weights_only=False`` explicitly. torch 2.6 flipped that
+default to ``True``, which rejects any pickle containing a non-tensor — and the SLAM cache is a
+numpy array, so a bare load raises ``UnpicklingError`` on every run under a modern torch. These
+all read files GVHMR itself wrote (the per-video cache) or that it downloaded into the checkpoint
+root, so full unpickling is the intended behaviour, but it now has to be stated. ``packaging.yml``
+fails the build if a bare ``torch.load`` reappears in this package.
 """
 
 import torch
@@ -195,11 +202,11 @@ def run_preprocess(cfg):
         torch.save({"bbx_xyxy": bbx_xyxy, "bbx_xys": bbx_xys}, paths.bbx)
         del tracker
     else:
-        bbx_xys = torch.load(paths.bbx)["bbx_xys"]
+        bbx_xys = torch.load(paths.bbx, weights_only=False)["bbx_xys"]
         Log.info(f"[Preprocess] bbx (xyxy, xys) from {paths.bbx}")
     if verbose:
         video = read_video_np(video_path)
-        bbx_xyxy = torch.load(paths.bbx)["bbx_xyxy"]
+        bbx_xyxy = torch.load(paths.bbx, weights_only=False)["bbx_xyxy"]
         video_overlay = draw_bbx_xyxy_on_image_batch(bbx_xyxy, video)
         save_video(video_overlay, cfg.paths.bbx_xyxy_video_overlay)
 
@@ -210,7 +217,7 @@ def run_preprocess(cfg):
         torch.save(vitpose, paths.vitpose)
         del vitpose_extractor
     else:
-        vitpose = torch.load(paths.vitpose)
+        vitpose = torch.load(paths.vitpose, weights_only=False)
         Log.info(f"[Preprocess] vitpose from {paths.vitpose}")
     if verbose:
         video = read_video_np(video_path)
@@ -261,7 +268,9 @@ def load_data_dict(cfg):
     if cfg.static_cam:
         R_w2c = torch.eye(3).repeat(length, 1, 1)
     else:
-        traj = torch.load(cfg.paths.slam)
+        # numpy array, so this is the one load that genuinely fails under the torch >= 2.6
+        # weights_only=True default rather than merely being implicit. See the module docstring.
+        traj = torch.load(cfg.paths.slam, weights_only=False)
         if cfg.use_dpvo:  # DPVO
             traj_quat = torch.from_numpy(traj[:, [6, 3, 4, 5]])
             R_w2c = quaternion_to_matrix(traj_quat).mT
@@ -274,11 +283,11 @@ def load_data_dict(cfg):
 
     data = {
         "length": torch.tensor(length),
-        "bbx_xys": torch.load(paths.bbx)["bbx_xys"],
-        "kp2d": torch.load(paths.vitpose),
+        "bbx_xys": torch.load(paths.bbx, weights_only=False)["bbx_xys"],
+        "kp2d": torch.load(paths.vitpose, weights_only=False),
         "K_fullimg": K_fullimg,
         "cam_angvel": compute_cam_angvel(R_w2c),
-        "f_imgseq": torch.load(paths.vit_features),
+        "f_imgseq": torch.load(paths.vit_features, weights_only=False),
     }
     return data
 
@@ -291,9 +300,9 @@ def render_incam(cfg):
         Log.info(f"[Render Incam] Video already exists at {incam_video_path}")
         return
 
-    pred = torch.load(cfg.paths.hmr4d_results)
+    pred = torch.load(cfg.paths.hmr4d_results, weights_only=False)
     smplx = make_smplx("supermotion").cuda()
-    smplx2smpl = torch.load(SMPLX2SMPL_PT).cuda()
+    smplx2smpl = torch.load(SMPLX2SMPL_PT, weights_only=False).cuda()
     faces_smpl = make_smplx("smpl").faces
 
     # smpl
@@ -308,7 +317,7 @@ def render_incam(cfg):
     # renderer
     renderer = Renderer(width, height, device="cuda", faces=faces_smpl, K=K)
     reader = get_video_reader(video_path)  # (F, H, W, 3), uint8, numpy
-    bbx_xys_render = torch.load(cfg.paths.bbx)["bbx_xys"]
+    bbx_xys_render = torch.load(cfg.paths.bbx, weights_only=False)["bbx_xys"]
 
     # -- render mesh -- #
     verts_incam = pred_c_verts
@@ -336,11 +345,11 @@ def render_global(cfg):
         return
 
     debug_cam = False
-    pred = torch.load(cfg.paths.hmr4d_results)
+    pred = torch.load(cfg.paths.hmr4d_results, weights_only=False)
     smplx = make_smplx("supermotion").cuda()
-    smplx2smpl = torch.load(SMPLX2SMPL_PT).cuda()
+    smplx2smpl = torch.load(SMPLX2SMPL_PT, weights_only=False).cuda()
     faces_smpl = make_smplx("smpl").faces
-    J_regressor = torch.load(SMPL_NEUTRAL_J_REGRESSOR_PT).cuda()
+    J_regressor = torch.load(SMPL_NEUTRAL_J_REGRESSOR_PT, weights_only=False).cuda()
 
     # smpl
     smplx_out = smplx(**to_cuda(pred["smpl_params_global"]))
