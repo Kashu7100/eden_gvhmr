@@ -133,7 +133,7 @@ class GVHMR:
             torch.save(pred, cfg.paths.hmr4d_results)
         else:
             Log.info(f"[HMR4D] results from {cfg.paths.hmr4d_results}")
-            pred = torch.load(cfg.paths.hmr4d_results)
+            pred = torch.load(cfg.paths.hmr4d_results, weights_only=False)
 
         if render:
             render_incam(cfg)
