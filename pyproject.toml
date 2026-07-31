@@ -62,10 +62,6 @@ dependencies = [
     "tqdm",                # used throughout; previously only arrived transitively
     "smplx",
     "trimesh",
-    # SMPL .pkl loading. Taken from master rather than PyPI: the last release (0.70) cannot be
-    # imported under numpy >= 1.24, and there has been no release since. Same commit Eden pins,
-    # so the two can share one installed distribution.
-    "chumpy @ git+https://github.com/mattloper/chumpy@580566eafc9ac68b2614b64d6f7aaa8",
     "cython_bbox",
     # timm is a plain floor: bumping it 0.9.12 -> 1.0.28 alone is bit-identical on the tennis
     # clip, so it does not affect the estimate (an earlier note here blamed it jointly with
@@ -95,10 +91,14 @@ dependencies = [
 train = ["hydra-core>=1.3", "hydra-zen", "hydra-colorlog", "omegaconf"]
 # DPVO visual odometry (SimpleVO is the default and needs none of these).
 dpvo = ["torch-scatter", "numba", "pypose"]
-# Mesh rendering (`--render` / `recover(render=True)`). pytorch3d cannot be pinned here: it has to
-# be built against your exact torch/CUDA, and prebuilt wheels exist for only a few combinations.
-# Install it yourself — see docs/INSTALL.md — then this extra is satisfied. Inference does not
-# need it, so a plain `pip install .` stays free of any compiled dependency.
+# Mesh rendering (`recover(render=True)`). Deliberately empty: both of its requirements have to
+# be installed by hand, and neither can be expressed here.
+#   * pytorch3d must be built against your exact torch/CUDA (prebuilt wheels cover only a few
+#     combinations), so it cannot be pinned;
+#   * chumpy is needed to unpickle the SMPL `.pkl` body model, and only the git version imports
+#     under numpy >= 1.24 — a direct URL, which PyPI refuses in package metadata.
+# See docs/INSTALL.md. Inference needs neither, so a plain `pip install .` pulls no compiled
+# dependency and no VCS dependency.
 render = []
 # Everything optional in one go.
 full = ["torch-scatter", "numba", "pypose"]
@@ -114,9 +114,10 @@ gvhmr-demo = "hmr4d.demo.__main__:main"
 gvhmr-download-checkpoints = "hmr4d.download:main"
 
 [tool.uv.extra-build-dependencies]
-# chumpy's setup.py imports pip/numpy at build time, which PEP 517 build isolation does not
-# provide, so building it from git fails with `No module named 'pip'`. Same entry Eden carries.
-# With plain pip, install it with `--no-build-isolation` instead — see docs/INSTALL.md.
+# chumpy is a render-only manual install (see the `render` extra), but when it is installed with
+# uv inside this project its setup.py imports pip/numpy at build time, which PEP 517 build
+# isolation does not provide — it fails with `No module named 'pip'`. With plain pip, use
+# `--no-build-isolation` instead. See docs/INSTALL.md.
 chumpy = ["pip", "setuptools", "wheel", "numpy"]
 
 [tool.setuptools.packages.find]

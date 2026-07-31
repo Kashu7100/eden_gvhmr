@@ -19,7 +19,7 @@ pip install -e .
 # or, to also pull the optional DPVO backend:  pip install -e ".[full]"
 ```
 
-**Inference needs neither a compiled dependency nor Hydra.** The model is built directly from
+**Inference needs no compiled dependency, no VCS dependency and no Hydra.** The model is built directly from
 `hmr4d.demo.pipeline.DEMO_MODEL_CFG`, so nothing touches Hydra's global config state — which is
 what lets GVHMR run inside a host process that owns Hydra itself. Hydra is still how *training*
 composes its configs, and lives in the `train` extra; `tools/bench/test_demo_cfg_parity.py`
@@ -32,16 +32,23 @@ vendored in `hmr4d/utils/rotation_conversions.py` (copied verbatim from pytorch3
 
 ### Optional: mesh rendering (`--render`)
 
-Only `render=True` still needs the real pytorch3d, for its rasterizer. It must be built against
-your exact torch/CUDA; prebuilt wheels exist for a few combinations, otherwise it builds from
-source (a couple of minutes, needs `nvcc`):
+Rendering the overlay videos needs two things inference does not, and **neither can be declared
+as a dependency** — one has to match your build, the other is only correct from git, which PyPI
+does not allow in package metadata. Install both by hand:
 
 ```bash
-# prebuilt, if one matches your python/CUDA/torch:
+# 1. pytorch3d, for the rasterizer. Must match your exact torch/CUDA. Prebuilt wheels exist for
+#    a few combinations; otherwise it builds from source (a couple of minutes, needs `nvcc`).
 pip install "pytorch3d @ https://dl.fbaipublicfiles.com/pytorch3d/packaging/wheels/py310_cu121_pyt230/pytorch3d-0.7.6-cp310-cp310-linux_x86_64.whl"
-# otherwise, from source:
-CUDA_HOME=/usr/local/cuda pip install "git+https://github.com/facebookresearch/pytorch3d.git@stable"
+CUDA_HOME=/usr/local/cuda pip install "git+https://github.com/facebookresearch/pytorch3d.git@stable"   # or from source
+
+# 2. chumpy, to unpickle the SMPL `.pkl` body model the renderer takes its faces from. Only the
+#    git version imports under numpy >= 1.24; the last release (0.70) does not.
+pip install --no-build-isolation "chumpy @ git+https://github.com/mattloper/chumpy@580566eafc9ac68b2614b64d6f7aaa8"
 ```
+
+(`--no-build-isolation` because chumpy's `setup.py` imports pip/numpy at build time. With uv,
+this project's `[tool.uv.extra-build-dependencies]` handles it instead.)
 
 The demo has been verified end-to-end with this recipe on an RTX 3080 (driver 580, CUDA 12.6
 runtime — the cu121 wheels are forward-compatible).
