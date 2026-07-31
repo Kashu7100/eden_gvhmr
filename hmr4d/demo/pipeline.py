@@ -19,7 +19,7 @@ from tqdm import tqdm
 from einops import einsum
 from hydra import initialize_config_module, compose
 from hydra.core.global_hydra import GlobalHydra
-from pytorch3d.transforms import quaternion_to_matrix
+from hmr4d.utils.rotation_conversions import quaternion_to_matrix
 
 from hmr4d import PROJ_ROOT
 from hmr4d.configs import register_store_gvhmr

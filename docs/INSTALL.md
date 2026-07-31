@@ -9,17 +9,32 @@ cd eden_gvhmr
 conda create -y -n gvhmr python=3.10
 conda activate gvhmr
 
-# 1. Prerequisites that must match your CUDA toolkit (NOT auto-installed by the package,
-#    because pinning them would break co-installation into an existing GPU env):
-#      - torch / torchvision
-#      - pytorch3d (a hard inference dependency)
-#    The versions below reproduce the reference setup (CUDA 12.1); adjust for your CUDA.
+# 1. torch / torchvision must match your CUDA toolkit, so they are not auto-installed (pinning
+#    them would break co-installation into an existing GPU env). The versions below reproduce
+#    the reference setup (CUDA 12.1); adjust for your CUDA.
 pip install torch==2.3.0+cu121 torchvision==0.18.0+cu121 --extra-index-url https://download.pytorch.org/whl/cu121
-pip install "pytorch3d @ https://dl.fbaipublicfiles.com/pytorch3d/packaging/wheels/py310_cu121_pyt230/pytorch3d-0.7.6-cp310-cp310-linux_x86_64.whl"
 
-# 2. Install GVHMR (the importable package is `hmr4d`). Optional extras: dpvo, full.
+# 2. Install GVHMR (the importable package is `hmr4d`). Optional extras: dpvo, render, full.
 pip install -e .
 # or, to also pull the optional DPVO backend:  pip install -e ".[full]"
+```
+
+**Inference needs no compiled dependency.** pytorch3d used to be required, but the only part
+GVHMR needed on the inference path was its pure-torch rotation helpers, and those are now
+vendored in `hmr4d/utils/rotation_conversions.py` (copied verbatim from pytorch3d 0.7.8, BSD-3).
+`pip install -e .` is therefore enough to run `python -m hmr4d.demo`.
+
+### Optional: mesh rendering (`--render`)
+
+Only `render=True` still needs the real pytorch3d, for its rasterizer. It must be built against
+your exact torch/CUDA; prebuilt wheels exist for a few combinations, otherwise it builds from
+source (a couple of minutes, needs `nvcc`):
+
+```bash
+# prebuilt, if one matches your python/CUDA/torch:
+pip install "pytorch3d @ https://dl.fbaipublicfiles.com/pytorch3d/packaging/wheels/py310_cu121_pyt230/pytorch3d-0.7.6-cp310-cp310-linux_x86_64.whl"
+# otherwise, from source:
+CUDA_HOME=/usr/local/cuda pip install "git+https://github.com/facebookresearch/pytorch3d.git@stable"
 ```
 
 The demo has been verified end-to-end with this recipe on an RTX 3080 (driver 580, CUDA 12.6

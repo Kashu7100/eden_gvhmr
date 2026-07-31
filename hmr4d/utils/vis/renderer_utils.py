@@ -1,10 +1,16 @@
-from hmr4d.utils.vis.renderer import Renderer
 from tqdm import tqdm
 import numpy as np
+
+# `Renderer` pulls in pytorch3d's rasterizer, which needs the compiled CUDA extension. It is
+# imported inside the functions below so that merely *importing* this module — which the Hydra
+# config store does transitively, via the training datasets — does not make a pytorch3d build a
+# requirement of every inference run.
 
 
 def simple_render_mesh(render_dict):
     """Render an camera-space mesh, blank background"""
+    from hmr4d.utils.vis.renderer import Renderer
+
     width, height, focal_length = render_dict["whf"]
     faces = render_dict["faces"]
     verts = render_dict["verts"]
@@ -20,6 +26,8 @@ def simple_render_mesh(render_dict):
 
 def simple_render_mesh_background(render_dict, VI=50, colors=[0.8, 0.8, 0.8]):
     """Render an camera-space mesh, blank background"""
+    from hmr4d.utils.vis.renderer import Renderer
+
     K = render_dict["K"]
     faces = render_dict["faces"]
     verts = render_dict["verts"]
