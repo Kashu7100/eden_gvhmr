@@ -35,11 +35,36 @@ def parse_args():
         "If the camera zoom in a lot, you can try 135, 200 or even larger values.",
     )
     parser.add_argument("--verbose", action="store_true", help="If true, draw intermediate results")
+    parser.add_argument(
+        "--no_render",
+        action="store_true",
+        help="Skip the overlay videos and write only the recovered parameters. Rendering is the "
+        "one step that still needs pytorch3d (the `render` extra); inference does not.",
+    )
     return parser.parse_args()
+
+
+def _check_renderer_available() -> None:
+    """Fail before the expensive stages if rendering was asked for but cannot run.
+
+    Rendering is the only part of the demo that still needs pytorch3d, and it happens *after*
+    tracking, ViTPose and the forward pass — so without this the user would wait through the
+    whole pipeline only to lose it to an ImportError at the very end.
+    """
+    try:
+        import pytorch3d.renderer  # noqa: F401
+    except ImportError as exc:
+        raise SystemExit(
+            "Rendering needs pytorch3d, which is not installed. Either pass --no_render to write "
+            "just the recovered parameters, or install pytorch3d for your torch/CUDA build (see "
+            f"docs/INSTALL.md). Import failed with: {exc}"
+        ) from exc
 
 
 def main():
     args = parse_args()
+    if not args.no_render:
+        _check_renderer_available()
     Log.info(f"[GPU]: {torch.cuda.get_device_name()}")
     Log.info(f'[GPU]: {torch.cuda.get_device_properties("cuda")}')
 
@@ -50,7 +75,7 @@ def main():
         use_dpvo=args.use_dpvo,
         f_mm=args.f_mm,
         output_root=args.output_root,
-        render=True,
+        render=not args.no_render,
         verbose=args.verbose,
     )
 

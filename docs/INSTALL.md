@@ -40,27 +40,50 @@ CUDA_HOME=/usr/local/cuda pip install "git+https://github.com/facebookresearch/p
 The demo has been verified end-to-end with this recipe on an RTX 3080 (driver 580, CUDA 12.6
 runtime — the cu121 wheels are forward-compatible).
 
-Several dependencies carry hard version bounds in `pyproject.toml`. They are not stylistic:
+### Versions: floors, not pins
 
-- `numpy<1.24` — `chumpy` imports the `np.bool`/`np.int`/… aliases removed in 1.24, and torch
-  2.3 is built against numpy 1.x.
-- `av==13.0.0`, `imageio==2.34.1` — newer decoders turn the same mp4 into slightly different
-  pixels, which moves the YOLO boxes and shifts every downstream stage.
-- `timm==0.9.12`, `ultralytics==8.2.42` — upstream's versions; newer ones also perturb the
-  tracker output (max |Δbody_pose| ≈ 5e-2 rad on the bundled tennis clip).
+`pyproject.toml` declares floors so GVHMR installs next to a modern stack. Two constraints are
+real, and neither is expressible in metadata:
 
-The pipeline is otherwise deterministic: with these pins, two clean environments reproduce each
-other bit-for-bit (max |Δ| exactly 0 on `docs/example_video/tennis.mp4`). If you are comparing
-runs and see small differences, check these versions first.
+- **torch decides your numpy.** torch declares no numpy requirement at any version, but torch
+  < 2.4 is compiled against numpy 1.x and dies at import under numpy 2. Install torch first and
+  the rest follows.
+- **ultralytics ≥ 8.4 is required by modern torch.** torch 2.6 flipped `torch.load` to
+  `weights_only=True`; ultralytics 8.2.42 (upstream's pin) predates that and its own loader
+  raises `UnpicklingError` on `yolov8x.pt`. That is why the floor exists.
+
+`av`/`imageio`/`timm`/`ultralytics` versions are *part of the numerics* — a different video
+decoder or detector shifts the boxes and moves the estimate by ~5e-2 rad on the bundled tennis
+clip. They are not wrong, just not identical. Within one fixed environment the pipeline is
+deterministic: two clean installs of the same versions reproduce each other bit-for-bit.
+
+### Reproducing the reference numbers
+
+The released checkpoint was validated on the stack below. There is no `reproducible` extra,
+because it would have to relax the floors above and an extra can only narrow — so it is a manual
+recipe. It needs **python ≤ 3.11** (numpy 1.23.5 ships no cp312 wheel) and **torch 2.3**:
+
+```bash
+uv venv --python 3.10 && uv pip install torch==2.3.0+cu121 torchvision==0.18.0+cu121 \
+  --extra-index-url https://download.pytorch.org/whl/cu121
+uv pip install -e . --no-deps          # skip the modern floors
+uv pip install numpy==1.23.5 imageio==2.34.1 av==13.0.0 timm==0.9.12 ultralytics==8.2.42 \
+  pytorch-lightning hydra-core hydra-zen hydra-colorlog omegaconf einops "opencv-python<5" \
+  scikit-image termcolor rich joblib ffmpeg-python huggingface-hub yacs tqdm smplx trimesh \
+  cython_bbox lapx wis3d pycolmap \
+  "chumpy @ git+https://github.com/mattloper/chumpy@580566eafc9ac68b2614b64d6f7aaa8"
+```
 
 The distribution name is `eden-gvhmr`; the import name stays `hmr4d`.
 `requirements.txt` remains as an exact reproduction of the original upstream environment
 (`pip install -r requirements.txt`) — the `pip install .` path above is preferred.
 
-> **Co-installing into another env (e.g. Eden)?** `chumpy` (used to load SMPL `.pkl`)
-> requires `numpy < 1.24`, which conflicts with newer environments. GVHMR is therefore best
-> installed in its **own** environment; an integration such as an Eden extension should call
-> it out-of-process (subprocess/worker) rather than sharing a single interpreter.
+> **Co-installing into another env (e.g. Eden)?** This now resolves cleanly. The two things
+> that used to prevent it are gone: `pytorch3d` is no longer needed for inference, and the
+> `numpy<1.24` cap was an artifact of chumpy 0.70 (chumpy master, pinned here, imports fine
+> under numpy 2). Installing GVHMR into a current Eden environment is purely additive — no
+> downgrades. Note that you then run on that environment's `av`/`imageio`/`timm`/`ultralytics`,
+> so results shift slightly from the reference stack above.
 
 ### Optional: DPVO (not recommended if you want fast inference speed)
 ```bash
