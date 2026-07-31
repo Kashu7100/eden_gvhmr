@@ -2,11 +2,14 @@ import numpy as np
 import cv2
 import torch
 import torch.nn.functional as F
-from pytorch3d.transforms import so3_exp_map, so3_log_map
-from pytorch3d.transforms import matrix_to_quaternion, quaternion_to_axis_angle, matrix_to_rotation_6d
-import pytorch3d.ops.knn as knn
+from hmr4d.utils.rotation_conversions import matrix_to_quaternion, quaternion_to_axis_angle, matrix_to_rotation_6d
 from hmr4d.utils.pylogger import Log
-from pytorch3d.transforms import euler_angles_to_matrix
+from hmr4d.utils.rotation_conversions import euler_angles_to_matrix
+
+# NOTE: `pytorch3d.ops.knn` and `pytorch3d.transforms.so3_*` are imported lazily, inside the
+# only (currently unused) code paths that need them. Both live in pytorch3d proper rather than
+# the vendored rotation helpers — and `ops.knn` needs its compiled CUDA extension — so importing
+# them here would make every inference run depend on a pytorch3d build it never actually uses.
 import hmr4d.utils.matrix as matrix
 from einops import einsum, rearrange, repeat
 from hmr4d.utils.geo.quaternion import qbetween
@@ -204,6 +207,8 @@ def axis_angle_to_matrix_exp_map(aa):
     Returns:
         R: (*, 3, 3)
     """
+    from pytorch3d.transforms import so3_exp_map  # not vendored: unused, needs full pytorch3d
+
     print("Use pytorch3d.transforms.axis_angle_to_matrix instead!!!")
     ori_shape = aa.shape[:-1]
     return so3_exp_map(aa.reshape(-1, 3)).reshape(*ori_shape, 3, 3)
@@ -216,6 +221,8 @@ def matrix_to_axis_angle_log_map(R):
     Returns:
         R: (*, 3)
     """
+    from pytorch3d.transforms import so3_log_map  # not vendored: unused, needs full pytorch3d
+
     print("WARINING! I met singularity problem with this function, use matrix_to_axis_angle instead!")
     ori_shape = R.shape[:-2]
     return so3_log_map(R.reshape(-1, 3, 3)).reshape(*ori_shape, 3)
@@ -293,6 +300,8 @@ def get_nearby_points(points, query_verts, padding=0.0, p=1):
         idx = (((points - min_xyz) > 0).all(dim=-1) * ((points - max_xyz) < 0).all(dim=-1)).nonzero().squeeze(-1)
         nearby_points = points[idx]
     elif p == 2:
+        import pytorch3d.ops.knn as knn  # needs pytorch3d's compiled extension; see the note up top
+
         squared_dist, _, _ = knn.knn_points(points[None], query_verts[None], K=1, return_nn=False)
         mask = squared_dist[0, :, 0] < padding**2  # (S,)
         nearby_points = points[mask]

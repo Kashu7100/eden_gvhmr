@@ -17,10 +17,13 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
 
-# NOTE: `torch`/`torchvision` and `pytorch3d` are intentionally NOT listed here.
-# They must match the host CUDA toolkit, so pinning them (e.g. torch==2.3.0+cu121 or
-# the pytorch3d +cu121 URL wheel) would break co-installation into an existing GPU env
-# such as Eden's. Install them first, matching your CUDA — see docs/INSTALL.md.
+# NOTE: `torch`/`torchvision` are intentionally NOT listed here. They must match the host CUDA
+# toolkit, so pinning them (e.g. torch==2.3.0+cu121) would break co-installation into an existing
+# GPU env such as Eden's. Install torch first, matching your CUDA — see docs/INSTALL.md.
+#
+# `pytorch3d` is NOT required for inference. The rotation helpers it used to provide are vendored
+# in `hmr4d/utils/rotation_conversions.py`; only the mesh renderer (`render=True`) still needs the
+# real package, which is why it lives in the `render` extra rather than here.
 dependencies = [
     "pytorch-lightning",   # code imports `pytorch_lightning`
     "hydra-core>=1.3",
@@ -63,6 +66,11 @@ dependencies = [
 [project.optional-dependencies]
 # DPVO visual odometry (SimpleVO is the default and needs none of these).
 dpvo = ["torch-scatter", "numba", "pypose"]
+# Mesh rendering (`--render` / `recover(render=True)`). pytorch3d cannot be pinned here: it has to
+# be built against your exact torch/CUDA, and prebuilt wheels exist for only a few combinations.
+# Install it yourself — see docs/INSTALL.md — then this extra is satisfied. Inference does not
+# need it, so a plain `pip install .` stays free of any compiled dependency.
+render = []
 # Everything optional in one go.
 full = ["torch-scatter", "numba", "pypose"]
 
