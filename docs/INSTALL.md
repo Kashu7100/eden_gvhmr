@@ -52,10 +52,25 @@ real, and neither is expressible in metadata:
   `weights_only=True`; ultralytics 8.2.42 (upstream's pin) predates that and its own loader
   raises `UnpicklingError` on `yolov8x.pt`. That is why the floor exists.
 
-`av`/`imageio`/`timm`/`ultralytics` versions are *part of the numerics* — a different video
-decoder or detector shifts the boxes and moves the estimate by ~5e-2 rad on the bundled tennis
-clip. They are not wrong, just not identical. Within one fixed environment the pipeline is
-deterministic: two clean installs of the same versions reproduce each other bit-for-bit.
+A third constraint is a version *pairing*: av 14 changed the API imageio's pyav plugin uses, so
+imageio 2.34.1 against av >= 14 fails to read the video at all. Hence the `imageio>=2.37` floor.
+
+Two of these versions are *part of the numerics*. Measured one change at a time on the bundled
+tennis clip, against the reference pins:
+
+| change | effect on the estimate |
+| --- | --- |
+| numpy 1.23.5 -> 1.26.4 | **bit-identical** |
+| numpy 1.26.4 -> 2.2.6 (the 1.x/2.x major bump) | **bit-identical**, incl. every preprocess artifact |
+| imageio 2.34.1 -> 2.37.4 | **bit-identical** |
+| timm 0.9.12 -> 1.0.28 | **bit-identical** |
+| av 13.0 -> 17.1 (decoder) | 3.6 deg max on body joints |
+| ultralytics 8.2.42 -> 8.4.113 (detector) | 8.5 px on the boxes, 3.4 deg max on body joints |
+
+So the drift is the video decoder and the person detector — not numpy, and not timm. Neither is
+wrong; they just are not the versions the released checkpoint was tuned against. Within one
+fixed environment the pipeline is deterministic: two clean installs of the same versions
+reproduce each other bit-for-bit.
 
 ### Reproducing the reference numbers
 

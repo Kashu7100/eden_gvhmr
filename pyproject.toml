@@ -33,20 +33,26 @@ dependencies = [
     # No upper bound. The old `numpy<1.24` came from chumpy 0.70, whose module scope did
     # `from numpy import bool, int, float, ...` — aliases removed in 1.24. The pin was also
     # self-fulfilling: it is what made the resolver choose 0.70. chumpy master (pinned below)
-    # dropped that line and imports cleanly under numpy 2.
+    # dropped that line and imports cleanly under numpy 2. Holding everything else fixed (torch 2.6,
+# scipy 1.14.1, ultralytics 8.4.113, av 13, imageio 2.37, timm 1.0.28), stepping numpy across the
+# 1.x/2.x boundary (1.26.4 -> 2.2.6) is bit-identical — NEP 50 does not move this pipeline.
     #
     # The remaining numpy constraint comes from *torch*, which declares none of its own: torch
     # < 2.4 is compiled against numpy 1.x and dies at import under numpy 2. Install torch first
-    # (docs/INSTALL.md); use the `reproducible` extra to get the whole numpy-1 reference stack.
+    # (docs/INSTALL.md); see "Reproducing the reference numbers" there for the numpy-1 stack.
     "numpy>=1.23",
     "einops",
     "opencv-python<5",     # cv2 5.x is a new major with API changes; unverified here
-    # Floors, not pins. The video decoder is part of the numerics — av 18 / imageio 2.37 decode
-    # the same mp4 to slightly different pixels than av 13 / imageio 2.34, which moves the YOLO
-    # boxes and shifts every downstream stage — but that is a reproducibility concern, not a
-    # correctness one, and pinning them here makes the package uninstallable next to anything
-    # modern. `reproducible` restores the exact set.
-    "imageio>=2.34.1",
+    # Floors, not pins — pinning made the package uninstallable next to anything modern.
+    #
+    # The imageio floor is a hard requirement, not a preference: av 14 changed the API its pyav
+    # plugin uses, and imageio 2.34.1 against av >= 14 dies in `get_video_lwh` with
+    # `AttributeError: 'NoneType' object has no attribute 'numerator'`. 2.37 handles both.
+    #
+    # The decoder is also part of the numerics: measured one-at-a-time on the tennis clip
+    # against the reference pins, av 13 -> 17 shifts body joints by 3.6 deg max, while
+    # imageio 2.34 -> 2.37 on its own is bit-identical. Reproducibility, not correctness.
+    "imageio>=2.37.0",
     "av>=13.0.0",
     "scikit-image",
     "termcolor",
@@ -65,11 +71,14 @@ dependencies = [
     # so the two can share one installed distribution.
     "chumpy @ git+https://github.com/mattloper/chumpy@580566eafc9ac68b2614b64d6f7aaa8",
     "cython_bbox",
-    # Floors, for the same reason as av/imageio above: newer versions perturb the tracker boxes
-    # (max |d body_pose| ~5e-2 rad on the bundled tennis clip) but are not wrong. The ultralytics
-    # floor is a hard requirement, not a preference: upstream's 8.2.42 predates torch 2.6 flipping
-    # `torch.load` to weights_only=True, so its own loader raises UnpicklingError on yolov8x.pt
-    # against any modern torch.
+    # timm is a plain floor: bumping it 0.9.12 -> 1.0.28 alone is bit-identical on the tennis
+    # clip, so it does not affect the estimate (an earlier note here blamed it jointly with
+    # ultralytics; isolating them showed the detector is the whole effect).
+    #
+    # ultralytics is the one that moves the result — 8.2.42 -> 8.4.113 alone shifts the tracker
+    # boxes by 8.5 px and the body joints by 3.4 deg max. Its floor is nonetheless a hard
+    # requirement: 8.2.42 predates torch 2.6 flipping `torch.load` to weights_only=True, so its
+    # own loader raises UnpicklingError on yolov8x.pt against any modern torch.
     "timm>=0.9.12",        # HMR2.0a ViT feature extraction
     "ultralytics>=8.4.0",  # YOLO tracker
     "lapx",
