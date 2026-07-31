@@ -1,6 +1,6 @@
 from omegaconf import OmegaConf
 from hmr4d import PROJ_ROOT, get_checkpoint_root
-from hydra.utils import instantiate
+from hmr4d.utils.instantiate import instantiate
 from hmr4d.model.gvhmr.gvhmr_pl_demo import DemoPL
 
 

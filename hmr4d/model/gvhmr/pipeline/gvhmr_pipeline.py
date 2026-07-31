@@ -4,7 +4,7 @@ import torch.nn.functional as F
 from torch.cuda.amp import autocast
 import numpy as np
 from einops import einsum, rearrange, repeat
-from hydra.utils import instantiate
+from hmr4d.utils.instantiate import instantiate
 from hmr4d.utils.pylogger import Log
 from hmr4d.utils.net_utils import gaussian_smooth
 
